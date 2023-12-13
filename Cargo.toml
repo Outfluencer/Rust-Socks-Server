@@ -12,17 +12,6 @@ codegen-units = 1
 strip = true
 overflow-checks = false
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tokio = { version = "1.35.0", features = ["full"] }
 network-interface = "1.1.1"
-#zip =  { version = "0.6.6", features = ["deflate-miniz"], default-features = false }
-#flate2 = "1.0.28"
-#tar = "0.4.40"
-#[target.'cfg(target_pointer_width = "32")'.dependencies]
-#reqwest = { version = "0.11.22", features = ["native-tls-vendored"] }
-#
-#[target.'cfg(target_pointer_width = "64")'.dependencies]
-#reqwest = { version = "0.11.22", features = ["rustls-tls"], default-features = false }
