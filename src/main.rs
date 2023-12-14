@@ -4,28 +4,57 @@ use network_interface::NetworkInterface;
 use network_interface::NetworkInterfaceConfig;
 
 
+
+pub static mut RESOLVE_LOCAL: bool = false;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("starting proxy server");
-    let listener = TcpListener::bind("0.0.0.0:18887").await?;
+
+    // only set std::env::set_var("RUST_LOG", "info") if not already set
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_logger::init();
+
+
+
+    log::info!("starting proxy server...");
+
+    let mut bind = String::from("0.0.0.0:18887");
+
+    for arg in std::env::args() {
+        if arg.starts_with("bind=") {
+            bind = arg.split("=").collect::<Vec<&str>>()[1].to_string();
+        } else if arg.starts_with("resolve=") {
+            let resolve = arg.split("=").collect::<Vec<&str>>()[1];
+            if resolve == "true" {
+                log::info!("enabled resolving local addresses");
+                unsafe {
+                    RESOLVE_LOCAL = true;
+                }
+            }
+        }
+    }
+
+    log::info!("binding to [{}]...", bind);
+    let listener = TcpListener::bind(bind).await?;
 
     loop {
         let (socket, address) = listener.accept().await?;
 
-        println!("[{}] connected", address);
+        log::info!("incoming connection accepted [{}]", address);
 
         tokio::spawn(async move {
-            if let Err(e) = handle_client(socket).await {
-                println!("[{}] an error occured; error = {:?}", address, e);
+            if let Err(e) = handle_client(socket, &address).await {
+                log::error!("[{}] caugth an error: {:?}", address, e);
             }
         });
     }
     
 }
 
-const RESOLVE_LOCAL: bool = true;
 
-async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
+async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     let version = socket.read_u8().await?;
     if version == 5 {
         let nmethods = socket.read_u8().await?;
@@ -69,20 +98,23 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
             ipbytes = ip.to_vec();
             port = socket.read_u16().await?;
             let mut bert = IpAddr::from(ip);
-            if RESOLVE_LOCAL {
-                let network_interfaces = NetworkInterface::show();
-                if network_interfaces.is_ok() {
-                    let network_interfaces = network_interfaces.unwrap();
-                    for itf in network_interfaces.iter() {
-                        itf.addr.iter().for_each(|addr| {
-                            if addr.ip() == bert {
-                                println!("resolved [{}] internal to [{}] v5", addr.ip(), bert);
-                                bert = IpAddr::from([127, 0, 0, 1]);
-                            }
-                        });
+            unsafe {
+                if RESOLVE_LOCAL {
+                    let network_interfaces = NetworkInterface::show();
+                    if network_interfaces.is_ok() {
+                        let network_interfaces = network_interfaces.unwrap();
+                        for itf in network_interfaces.iter() {
+                            itf.addr.iter().for_each(|addr| {
+                                if addr.ip() == bert {
+                                    log::debug!("resolved [{}] internal to [{}] v5", addr.ip(), bert);
+                                    bert = IpAddr::from([127, 0, 0, 1]);
+                                }
+                            });
+                        }
                     }
                 }
             }
+            
             SocketAddr::from((IpAddr::from(bert), port))
         } else if address_type == 3 {
             let mut len = [0u8; 1];
@@ -112,14 +144,13 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
         let tcp_stream = TcpStream::connect(address).await;
 
         if tcp_stream.is_err() {
-            println!("{:?} connection failed", address);
             socket.write_u8(5).await?;
             socket.write_u8(4).await?;
             socket.write_u8(0).await?;
             socket.write_u8(address_type).await?;
             socket.write_all(ipbytes.as_slice()).await?;
             socket.write_u16(port).await?;
-            return Err(format!("proxy connection to [{:?}] connection failed v5", address).into());
+            return Err(format!("proxy connection to [{}] failed v5", address).into());
         }
 
         let mut tcp_stream = tcp_stream.unwrap();
@@ -131,9 +162,9 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
         socket.write_all(ipbytes.as_slice()).await?;
         socket.write_u16(port).await?;
         
-        println!("connect [{:?}] to [{:?}] v5", socket, address);
-
+        log::info!("connected [{}] to [{}] v5", address_from, address);
         tokio::io::copy_bidirectional(&mut socket, &mut tcp_stream).await?;
+        log::info!("closed bridge from [{}] to [{}] v5", address_from, address);
     }
     else if version == 4 {
         let command = socket.read_u8().await?;
@@ -155,26 +186,24 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
             }
         }
 
-
         let mut bert = IpAddr::from(ip);
-        
-        if RESOLVE_LOCAL {
-            let network_interfaces = NetworkInterface::show();
-            if network_interfaces.is_ok() {
-                let network_interfaces = network_interfaces.unwrap();
-                for itf in network_interfaces.iter() {
-                    itf.addr.iter().for_each(|addr| {
-                        if addr.ip() == bert {
-                            println!("resolved [{}] internal to [{}] v4", addr.ip(), bert);
-                            bert = IpAddr::from([127, 0, 0, 1]);
-                        }
-                    });
+        unsafe {
+            if RESOLVE_LOCAL {
+                let network_interfaces = NetworkInterface::show();
+                if network_interfaces.is_ok() {
+                    let network_interfaces = network_interfaces.unwrap();
+                    for itf in network_interfaces.iter() {
+                        itf.addr.iter().for_each(|addr| {
+                            if addr.ip() == bert {
+                                log::debug!("resolved [{}] internal to [{}] v4", addr.ip(), bert);
+                                bert = IpAddr::from([127, 0, 0, 1]);
+                            }
+                        });
+                    }
                 }
             }
         }
-        
-
-
+       
         let address = SocketAddr::from((IpAddr::from(bert), port));
         let tcp_stream = TcpStream::connect(address).await;
         if tcp_stream.is_err() {
@@ -182,7 +211,7 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
             socket.write_u8(92).await?;
             socket.write_u16(port).await?;
             socket.write_all(&ip).await?;
-            return Err(format!("proxy connection to [{:?}] connection failed v4", address).into());
+            return Err(format!("proxy connection to [{}] failed v4", address).into());
         } 
         
         let mut tcp_stream = tcp_stream.unwrap();
@@ -192,12 +221,14 @@ async fn handle_client(mut socket: TcpStream) -> Result<(), Box<dyn std::error::
         socket.write_u16(port).await?;
         socket.write_all(&ip).await?;
 
-        println!("connect [{:?}] to [{:?}] v4", socket, address);
-        
+        log::info!("connected [{}] to [{}] v4", address_from, address);
         tokio::io::copy_bidirectional(&mut socket, &mut tcp_stream).await?;
+        log::info!("closed bridge from [{}] to [{}] v4", address_from, address);
+
     } else {
         return Err(format!("version not supported {}", version).into());
     }
+
     Ok(())
 
 }
