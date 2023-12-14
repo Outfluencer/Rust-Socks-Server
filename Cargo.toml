@@ -15,3 +15,5 @@ overflow-checks = false
 [dependencies]
 tokio = { version = "1.35.0", features = ["full"] }
 network-interface = "1.1.1"
+log = "0.4.20"
+env_logger = "0.10.1"
