@@ -10,13 +10,10 @@ pub static mut RESOLVE_LOCAL: bool = false;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
-    // only set std::env::set_var("RUST_LOG", "info") if not already set
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
     env_logger::init();
-
-
 
     log::info!("starting proxy server...");
 
@@ -97,7 +94,7 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
             socket.read_exact(&mut ip).await?;
             ipbytes = ip.to_vec();
             port = socket.read_u16().await?;
-            let mut bert = IpAddr::from(ip);
+            let mut ip_addr = IpAddr::from(ip);
             unsafe {
                 if RESOLVE_LOCAL {
                     let network_interfaces = NetworkInterface::show();
@@ -105,9 +102,9 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
                         let network_interfaces = network_interfaces.unwrap();
                         for itf in network_interfaces.iter() {
                             itf.addr.iter().for_each(|addr| {
-                                if addr.ip() == bert {
-                                    log::debug!("resolved [{}] internal to [{}] v5", addr.ip(), bert);
-                                    bert = IpAddr::from([127, 0, 0, 1]);
+                                if addr.ip() == ip_addr {
+                                    log::debug!("resolved [{}] internal to [{}] v5", addr.ip(), ip_addr);
+                                    ip_addr = IpAddr::from([127, 0, 0, 1]);
                                 }
                             });
                         }
@@ -115,7 +112,7 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
                 }
             }
             
-            SocketAddr::from((IpAddr::from(bert), port))
+            SocketAddr::from((IpAddr::from(ip_addr), port))
         } else if address_type == 3 {
             let mut len = [0u8; 1];
             socket.read_exact(&mut len).await?;
@@ -186,7 +183,7 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
             }
         }
 
-        let mut bert = IpAddr::from(ip);
+        let mut ip_addr = IpAddr::from(ip);
         unsafe {
             if RESOLVE_LOCAL {
                 let network_interfaces = NetworkInterface::show();
@@ -194,9 +191,9 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
                     let network_interfaces = network_interfaces.unwrap();
                     for itf in network_interfaces.iter() {
                         itf.addr.iter().for_each(|addr| {
-                            if addr.ip() == bert {
-                                log::debug!("resolved [{}] internal to [{}] v4", addr.ip(), bert);
-                                bert = IpAddr::from([127, 0, 0, 1]);
+                            if addr.ip() == ip_addr {
+                                log::debug!("resolved [{}] internal to [{}] v4", addr.ip(), ip_addr);
+                                ip_addr = IpAddr::from([127, 0, 0, 1]);
                             }
                         });
                     }
@@ -204,7 +201,7 @@ async fn handle_client(mut socket: TcpStream, address_from: &SocketAddr) -> Resu
             }
         }
        
-        let address = SocketAddr::from((IpAddr::from(bert), port));
+        let address = SocketAddr::from((IpAddr::from(ip_addr), port));
         let tcp_stream = TcpStream::connect(address).await;
         if tcp_stream.is_err() {
             socket.write_u8(0).await?;
