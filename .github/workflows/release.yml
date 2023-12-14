@@ -25,13 +25,13 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
+      - name: Build Release
+        run: cargo build --release --target ${{ matrix.target }}
+
       - name: Set Git User
         run: |
           git config --global user.email "actions@example.com"
           git config --global user.name "GitHub Actions"
-
-      - name: Build Release
-        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Create Release
         run: |
@@ -43,3 +43,13 @@ jobs:
         with:
           name: release
           path: target/${{ matrix.target }}/release/rust_socks_server
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/${{ matrix.target }}/release/rust_socks_server
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ github.repository }}
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: "Release notes for v${{ github.run_number }}"
