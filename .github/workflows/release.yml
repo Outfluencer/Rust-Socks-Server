@@ -25,6 +25,11 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
+      - name: Set Git User
+        run: |
+          git config --global user.email "actions@example.com"
+          git config --global user.name "GitHub Actions"
+
       - name: Build Release
         run: cargo build --release --target ${{ matrix.target }}
 
