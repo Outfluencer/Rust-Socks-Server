@@ -30,8 +30,8 @@ jobs:
 
       - name: Set Git User
         run: |
-          git config --global user.email "actions@example.com"
-          git config --global user.name "GitHub Actions"
+          git config --global user.email "realoutfluencer@gmail.com"
+          git config --global user.name "Outfluencer"
 
       - name: Create Release
         run: |
