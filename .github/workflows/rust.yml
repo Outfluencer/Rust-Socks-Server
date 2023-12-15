@@ -24,7 +24,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: Artifacts
-        path: target/release/
+        path: target/release/rust_socks_server
       
   build-windows:
 
@@ -32,6 +32,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     - name: Run tests
       run: cargo test --verbose
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: Artifacts
+        path: target/release/rust_socks_server.exe
