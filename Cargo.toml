@@ -5,7 +5,7 @@ edition = "2021"
 
 [profile.release]
 lto = true
-opt-level = 3
+opt-level = "z"
 debug = false
 panic = "abort"
 codegen-units = 1
@@ -13,8 +13,4 @@ strip = true
 overflow-checks = false
 
 [dependencies]
-tokio = { version = "1.35.0", features = ["rt", "rt-multi-thread", "net", "macros","io-util" ] }
-network-interface = "1.1.1"
-log = "0.4.20"
-env_logger = "0.10.1"
-
+tokio = { version = "1.35.0", features = ["rt", "rt-multi-thread", "net", "macros","io-util"] }
