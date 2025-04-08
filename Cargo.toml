@@ -13,7 +13,7 @@ strip = true
 overflow-checks = false
 
 [dependencies]
-tokio = { version = "1.35.0", features = ["rt", "rt-multi-thread", "net", "macros","io-util" ] }
+tokio = { version = "1.38.2", features = ["rt", "rt-multi-thread", "net", "macros","io-util" ] }
 network-interface = "1.1.1"
 log = "0.4.20"
 env_logger = "0.10.1"
